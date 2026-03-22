@@ -45,6 +45,7 @@ export default function RegisterPage() {
 
   // Hospital
   const [hospitalName, setHospitalName] = useState('');
+  const [hospitalAddress, setHospitalAddress] = useState('');
   const [city, setCity] = useState('');
   const [hospitalType, setHospitalType] = useState<'government' | 'private'>('government');
   const [agreeAccuracy, setAgreeAccuracy] = useState(false);
@@ -100,20 +101,35 @@ export default function RegisterPage() {
       let hospitalLat: number | null = null;
       let hospitalLng: number | null = null;
       try {
-        const geoRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', India')}&limit=1`,
-          { headers: { 'Accept-Language': 'en', 'User-Agent': 'ambulance-booking/1.0' } }
-        );
-        const geoData = await geoRes.json();
-        if (geoData?.[0]) {
-          hospitalLat = parseFloat(geoData[0].lat);
-          hospitalLng = parseFloat(geoData[0].lon);
+        const queries = [
+          `${hospitalName}, ${hospitalAddress}, ${city}, India`,
+          `${hospitalName}, ${city}, India`,
+          `${hospitalAddress}, ${city}, India`,
+          `${city}, India`,
+        ].map((q) => q.trim()).filter(Boolean);
+
+        for (const q of queries) {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=in`,
+            { headers: { 'Accept-Language': 'en', 'User-Agent': 'ambulance-booking/1.0' } }
+          );
+          const geoData = await geoRes.json();
+          if (geoData?.[0]?.lat && geoData?.[0]?.lon) {
+            const lat = parseFloat(geoData[0].lat);
+            const lng = parseFloat(geoData[0].lon);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              hospitalLat = lat;
+              hospitalLng = lng;
+              break;
+            }
+          }
         }
       } catch { /* proceed without coords */ }
 
       const { error } = await supabase.from('hospitals').insert({
         profile_id: authData.user.id,
         hospital_name: hospitalName,
+        address: hospitalAddress,
         city,
         hospital_type: hospitalType,
         approval_status: 'pending',
@@ -223,6 +239,17 @@ export default function RegisterPage() {
                         className={inputCls} placeholder="e.g. Chennai"
                       />
                     </Field>
+                    <div className="md:col-span-2">
+                      <Field label="Hospital Address" icon={<MapPin className="h-4 w-4" />}>
+                        <input
+                          type="text" required value={hospitalAddress}
+                          onChange={(e) => setHospitalAddress(e.target.value)}
+                          className={inputCls}
+                          placeholder="e.g. 12, Anna Salai, Thousand Lights, 600006"
+                        />
+                      </Field>
+                      <p className="text-xs text-gray-400 mt-1">Use a complete address so patients can find you accurately.</p>
+                    </div>
                   </div>
                 </div>
 

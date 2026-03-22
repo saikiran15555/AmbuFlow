@@ -273,7 +273,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                       {booking.status.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">${booking.fare}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">₹{booking.fare}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{formatDate(booking.created_at)}</td>
                 </tr>
               ))}
@@ -305,7 +305,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{booking.hospital?.hospital_name || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{booking.driver?.profile?.full_name || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">${booking.fare}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">₹{booking.fare}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(booking.created_at)}</td>
                   </tr>
                 ))}

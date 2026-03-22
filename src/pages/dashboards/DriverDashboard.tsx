@@ -258,6 +258,7 @@ export default function DriverDashboard() {
   const activeBookings = bookings.filter(b => ['accepted', 'arrived', 'picked_up'].includes(b.status));
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const totalEarnings = completedBookings.reduce((sum, b) => sum + b.fare, 0);
+  const walletBalance = (driverData as any)?.wallet_balance ?? (driverData as any)?.walletBalance ?? null;
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
@@ -309,7 +310,11 @@ export default function DriverDashboard() {
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-gray-600">Earnings</p><p className="text-3xl font-bold text-gray-900 mt-1">₹{totalEarnings}</p></div>
+              <div>
+                <p className="text-sm text-gray-600">Wallet Balance</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">₹{walletBalance ?? totalEarnings}</p>
+                <p className="text-xs text-gray-500 mt-1">Total earned: ₹{totalEarnings}</p>
+              </div>
               <DollarSign className="h-8 w-8 text-emerald-600" />
             </div>
           </div>
@@ -345,6 +350,11 @@ export default function DriverDashboard() {
                       </h3>
                       <p className="text-sm text-gray-600 mt-1">
                         {booking.hospital?.hospital_name} &bull; {booking.distance.toFixed(1)} km &bull; ₹{booking.fare}
+                      </p>
+
+                      <p className="text-xs text-gray-500 mt-1">
+                        Payment: {booking.payment_method === 'cash' ? 'Cash' : booking.payment_method === 'in_app' ? 'In-App (Simulated)' : '—'}
+                        {booking.payment_status ? ` • ${booking.payment_status}` : ''}
                       </p>
 
                       {/* Patient details */}

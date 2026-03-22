@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,55 +7,154 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 72.2% 50.6%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 3 87% 55%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 72.2% 50.6%;
-    --radius: 0.5rem;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 3 87% 55%;
+    --radius: 0.75rem;
+    --success: 142 71% 45%;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 3 87% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 3 87% 60%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  html { scroll-behavior: smooth; }
+  ::selection { background: hsl(var(--primary) / 0.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+@layer utilities {
+  .shimmer {
+    background: linear-gradient(110deg, rgba(0,0,0,0.04) 8%, rgba(0,0,0,0.08) 18%, rgba(0,0,0,0.04) 33%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s linear infinite;
+  }
+  .glass {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .dark .glass {
+    background: rgba(15,23,42,0.85);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, #E53935 0%, #FF6B6B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
+
+@keyframes shimmer { to { background-position-x: -200%; } }
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes ambulance-bounce {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50% { transform: translateY(-6px) rotate(2deg); }
+}
+
+@keyframes siren {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229,57,53,0.7); }
+  50% { box-shadow: 0 0 0 20px rgba(229,57,53,0); }
+}
+
+.animate-pulse-ring { animation: pulse-ring 1.4s ease-out infinite; }
+.animate-ambulance { animation: ambulance-bounce 1.2s ease-in-out infinite; }
+.animate-siren { animation: siren 1s ease-in-out infinite; }
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes emergency-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+}
+
+.animate-fade-in-up   { animation: fade-in-up 0.4s ease both; }
+.animate-fade-in      { animation: fade-in 0.3s ease both; }
+.animate-slide-in-right { animation: slide-in-right 0.35s ease both; }
+.animate-scale-in     { animation: scale-in 0.3s ease both; }
+.animate-emergency    { animation: emergency-pulse 1.2s ease-in-out infinite; }
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
 
 /* Leaflet map styles */
 .leaflet-container {
-  @apply w-full h-full rounded-lg;
+  @apply w-full h-full rounded-xl;
   z-index: 0;
+  font-family: 'Inter', sans-serif;
 }
-
-.leaflet-tile-pane {
-  z-index: 2;
+.leaflet-tile-pane { z-index: 2; }
+.leaflet-overlay-pane { z-index: 4; }
+.leaflet-marker-pane { z-index: 6; }
+.leaflet-popup-pane { z-index: 8; }
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important;
+  border: none !important;
 }
-
-.leaflet-overlay-pane {
-  z-index: 4;
-}
-
-.leaflet-marker-pane {
-  z-index: 6;
-}
-
-.leaflet-popup-pane {
-  z-index: 8;
-}
+.leaflet-popup-tip { display: none; }

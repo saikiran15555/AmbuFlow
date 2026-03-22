@@ -8,6 +8,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -43,15 +46,31 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         emergency: {
-          DEFAULT: "#DC2626",
-          dark: "#B91C1C",
-          light: "#FEE2E2",
+          DEFAULT: "#E53935",
+          dark: "#C62828",
+          light: "#FFEBEE",
+        },
+        success: {
+          DEFAULT: "#43A047",
+          dark: "#2E7D32",
+          light: "#E8F5E9",
         },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+      },
+      boxShadow: {
+        'glow-red': '0 0 20px rgba(229, 57, 53, 0.4)',
+        'glow-green': '0 0 20px rgba(67, 160, 71, 0.4)',
+      },
+      animation: {
+        'ambulance': 'ambulance-bounce 1.2s ease-in-out infinite',
+        'siren': 'siren 1s ease-in-out infinite',
+        'pulse-ring': 'pulse-ring 1.4s ease-out infinite',
       },
     },
   },

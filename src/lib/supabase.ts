@@ -53,6 +53,7 @@ export type Database = {
           is_available: boolean;
           current_lat: number | null;
           current_lng: number | null;
+          wallet_balance: number | null;
           created_at: string;
         };
       };
@@ -84,6 +85,9 @@ export type Database = {
           fare: number;
           status: 'pending' | 'accepted' | 'arrived' | 'picked_up' | 'completed' | 'cancelled';
           is_emergency: boolean;
+          payment_method: 'cash' | 'in_app' | null;
+          payment_status: 'pending' | 'paid' | null;
+          paid_at: string | null;
           created_at: string;
           updated_at: string;
         };

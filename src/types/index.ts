@@ -6,6 +6,10 @@ export type AmbulanceType = 'basic' | 'advanced';
 
 export type BookingStatus = 'pending' | 'accepted' | 'arrived' | 'picked_up' | 'completed' | 'cancelled';
 
+export type PaymentMethod = 'cash' | 'in_app';
+
+export type PaymentStatus = 'pending' | 'paid';
+
 export interface Profile {
   id: string;
   email: string;
@@ -20,6 +24,7 @@ export interface Hospital {
   id: string;
   profile_id: string;
   hospital_name: string;
+  address?: string | null;
   city: string;
   hospital_type: 'government' | 'private';
   approval_status: ApprovalStatus;
@@ -38,6 +43,7 @@ export interface Driver {
   is_available: boolean;
   current_lat: number | null;
   current_lng: number | null;
+  wallet_balance?: number | null;
   created_at: string;
   full_name?: string | null;
   phone?: string | null;
@@ -73,6 +79,9 @@ export interface Booking {
   fare: number;
   status: BookingStatus;
   is_emergency: boolean;
+  payment_method?: PaymentMethod | null;
+  payment_status?: PaymentStatus | null;
+  paid_at?: string | null;
   created_at: string;
   updated_at: string;
   driver?: Driver;

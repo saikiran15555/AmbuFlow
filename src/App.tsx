@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/layout/Navbar';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
@@ -16,9 +16,24 @@ import BookingDetailsPage from '@/pages/BookingDetailsPage';
 import TrackBookingPage from '@/pages/TrackBookingPage';
 import ProfilePage from '@/pages/ProfilePage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 function App() {
   const { user, profile, loading, profileResolved, profileError } = useAuth();
+  const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
+
+  const Page = ({ children }: { children: React.ReactNode }) => (
+    <motion.div
+      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 10 }}
+      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -10 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: 'easeOut' }}
+      className="will-change-transform"
+    >
+      {children}
+    </motion.div>
+  );
 
   if (loading || (user && !profileResolved)) {
     return (
@@ -31,135 +46,173 @@ function App() {
   return (
     <>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={
-          user ? (
-            profile ? (
-              <Navigate to={`/${profile.role}`} replace />
-            ) : profileError ? (
-              <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-                <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-2">Unable to load profile</h3>
-                  <p className="text-sm text-gray-500 mb-4">{profileError}</p>
-                  <a href="/" className="text-primary font-medium">Go to home</a>
-                </div>
-              </div>
-            ) : (
-              <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
-            )
-          ) : <LoginPage />
-        } />
-        <Route path="/register" element={
-          user ? (
-            profile ? (
-              <Navigate to={`/${profile.role}`} replace />
-            ) : profileError ? (
-              <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-                <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-2">Unable to load profile</h3>
-                  <p className="text-sm text-gray-500 mb-4">{profileError}</p>
-                  <a href="/" className="text-primary font-medium">Go to home</a>
-                </div>
-              </div>
-            ) : (
-              <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
-            )
-          ) : <RegisterPage />
-        } />
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Page><LandingPage /></Page>} />
+          <Route path="/login" element={
+            <Page>
+              {user ? (
+                profile ? (
+                  <Navigate to={`/${profile.role}`} replace />
+                ) : profileError ? (
+                  <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
+                    <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+                      <h3 className="text-lg font-semibold mb-2">Unable to load profile</h3>
+                      <p className="text-sm text-gray-500 mb-4">{profileError}</p>
+                      <a href="/" className="text-primary font-medium">Go to home</a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
+                )
+              ) : <LoginPage />}
+            </Page>
+          } />
+          <Route path="/register" element={
+            <Page>
+              {user ? (
+                profile ? (
+                  <Navigate to={`/${profile.role}`} replace />
+                ) : profileError ? (
+                  <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
+                    <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+                      <h3 className="text-lg font-semibold mb-2">Unable to load profile</h3>
+                      <p className="text-sm text-gray-500 mb-4">{profileError}</p>
+                      <a href="/" className="text-primary font-medium">Go to home</a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
+                )
+              ) : <RegisterPage />}
+            </Page>
+          } />
         
         {/* Shared Protected Routes */}
         <Route path="/profile" element={
-          <ProtectedRoute allowedRoles={['user', 'driver', 'hospital', 'admin']}>
-            <ProfilePage />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['user', 'driver', 'hospital', 'admin']}>
+              <ProfilePage />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/booking/:id" element={
-          <ProtectedRoute allowedRoles={['user', 'driver', 'hospital', 'admin']}>
-            <BookingDetailsPage />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['user', 'driver', 'hospital', 'admin']}>
+              <BookingDetailsPage />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/track/:id" element={
-          <ProtectedRoute allowedRoles={['user', 'driver', 'hospital', 'admin']}>
-            <TrackBookingPage />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['user', 'driver', 'hospital', 'admin']}>
+              <TrackBookingPage />
+            </ProtectedRoute>
+          </Page>
         } />
         
         {/* User Routes */}
         <Route path="/user" element={
-          <ProtectedRoute allowedRoles={['user']}>
-            <UserDashboard />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['user']}>
+              <UserDashboard />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/booking" element={
-          <ProtectedRoute allowedRoles={['user']}>
-            <BookingFlow />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['user']}>
+              <BookingFlow />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/book" element={
-          <ProtectedRoute allowedRoles={['user']}>
-            <BookingFlow />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['user']}>
+              <BookingFlow />
+            </ProtectedRoute>
+          </Page>
         } />
         
         {/* Driver Routes */}
         <Route path="/driver" element={
-          <ProtectedRoute allowedRoles={['driver']}>
-            <DriverDashboard />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['driver']}>
+              <DriverDashboard />
+            </ProtectedRoute>
+          </Page>
         } />
         
         {/* Hospital Routes */}
         <Route path="/hospital" element={
-          <ProtectedRoute allowedRoles={['hospital']}>
-            <HospitalDashboard />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['hospital']}>
+              <HospitalDashboard />
+            </ProtectedRoute>
+          </Page>
         } />
         
         {/* Admin Routes */}
         <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/users" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDataPage section="users" />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDataPage section="users" />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/hospitals" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDataPage section="hospitals" />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDataPage section="hospitals" />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/hospitals/:id" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <HospitalDetailPage />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <HospitalDetailPage />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/drivers" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDataPage section="drivers" />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDataPage section="drivers" />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/bookings" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDataPage section="bookings" />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDataPage section="bookings" />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/trips" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDataPage section="trips" />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDataPage section="trips" />
+            </ProtectedRoute>
+          </Page>
         } />
         <Route path="/admin/revenue" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDataPage section="revenue" />
-          </ProtectedRoute>
+          <Page>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDataPage section="revenue" />
+            </ProtectedRoute>
+          </Page>
         } />
-        
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+
+          <Route path="*" element={<Page><NotFoundPage /></Page>} />
+        </Routes>
+      </AnimatePresence>
     </>
   );
 }

@@ -245,6 +245,20 @@ export default function BookingDetailsPage() {
                   <span className="text-gray-600">Ambulance Type</span>
                   <span className="font-medium text-gray-900 capitalize">{booking.ambulance?.ambulance_type}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Payment Method</span>
+                  <span className="font-medium text-gray-900">
+                    {booking.payment_method === 'cash'
+                      ? 'Cash'
+                      : booking.payment_method === 'in_app'
+                        ? 'In-App (Simulated)'
+                        : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Payment Status</span>
+                  <span className="font-medium text-gray-900 capitalize">{booking.payment_status || '—'}</span>
+                </div>
                 <div className="border-t pt-2 mt-2">
                   <div className="flex justify-between items-center">
                     <span className="text-base font-semibold text-gray-900">Total Fare</span>
