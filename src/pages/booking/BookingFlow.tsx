@@ -814,7 +814,7 @@ export default function BookingFlow() {
                         </li>
                       ))}
                     </ul>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Rate: ₹{PRICING.PER_KM_RATE}/km</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Rate: ₹{PRICING.AMBULANCE_TYPES[type].perKmRate}/km</p>
                   </button>
                 );
               })}
@@ -836,11 +836,11 @@ export default function BookingFlow() {
               <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Fare Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Base Fare</span><span className="font-medium text-gray-900 dark:text-white">₹{PRICING.BASE_FARE}</span>
+                  <span>Base Fare</span><span className="font-medium text-gray-900 dark:text-white">₹{PRICING.AMBULANCE_TYPES[ambulanceType].baseFare}</span>
                 </div>
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Distance ({distance.toFixed(1)} km × ₹{PRICING.PER_KM_RATE}/km)</span>
-                  <span className="font-medium text-gray-900 dark:text-white">₹{(distance * PRICING.PER_KM_RATE).toFixed(2)}</span>
+                  <span>Distance ({distance.toFixed(1)} km × ₹{PRICING.AMBULANCE_TYPES[ambulanceType].perKmRate}/km)</span>
+                  <span className="font-medium text-gray-900 dark:text-white">₹{(distance * PRICING.AMBULANCE_TYPES[ambulanceType].perKmRate).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>Multiplier</span><span className="font-medium text-gray-900 dark:text-white">×{PRICING.AMBULANCE_TYPES[ambulanceType].multiplier}</span>

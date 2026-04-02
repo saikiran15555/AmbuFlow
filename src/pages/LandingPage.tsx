@@ -78,7 +78,7 @@ export default function LandingPage() {
 
               <div className="flex flex-wrap gap-4">
                 {user ? (
-                  <Link to={profile?.role === 'user' ? '/booking' : `/${profile?.role}`}>
+                  <Link to={profile?.role === 'user' ? '/booking' : profile?.role ? `/${profile.role}` : '/'}>
                     <Button size="lg" className="text-base px-8 h-14 rounded-2xl shadow-lg shadow-red-200 dark:shadow-red-900/30 hover:shadow-xl hover:shadow-red-200 transition-all hover:-translate-y-0.5 active:scale-[0.98]">
                       <Ambulance className="mr-2 h-5 w-5" />
                       {profile?.role === 'user' ? 'Book Ambulance' : 'Go to Dashboard'}

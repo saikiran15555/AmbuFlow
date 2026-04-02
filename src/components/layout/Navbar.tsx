@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Navbar() {
   const { user, profile, signOut } = useAuth();
+  const isLoggedIn = !!(user && profile);
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -42,8 +43,8 @@ export default function Navbar() {
     setUnreadCount(count || 0);
   };
 
-  const handleSignOut = async () => { await signOut(); navigate('/'); };
-  const dashLink = profile ? `/${profile.role}` : '/';
+  const handleSignOut = async () => { await signOut(); };
+  const dashLink = profile?.role ? `/${profile.role}` : '/login';
 
   return (
     <>
@@ -69,7 +70,7 @@ export default function Navbar() {
 
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-2">
-              {user ? (
+              {isLoggedIn ? (
                 <>
                   {profile?.role === 'user' && (
                     <Link to="/booking">
@@ -151,7 +152,7 @@ export default function Navbar() {
               className="md:hidden border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden"
             >
               <div className="px-4 py-4 space-y-2">
-                {user ? (
+                {isLoggedIn ? (
                   <>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl mb-3">
                       <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">

@@ -5,57 +5,51 @@ import { toast } from 'sonner';
 import { Ambulance, Mail, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-type UserRole = 'user' | 'driver' | 'hospital' | 'admin';
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const [role, setRole] = useState<UserRole>('user');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // If already fully logged in, redirect to dashboard
   useEffect(() => {
     if (user && profile) {
-      if (profile.role !== role) {
-        toast.success('Logged in successfully — redirecting to your dashboard.');
-      }
       navigate(`/${profile.role}`, { replace: true });
     }
-  }, [user, profile, role, navigate]);
+  }, [user, profile, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    try {
-      console.log('Attempting login for role:', role);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error) {
-        console.error('Login error:', error);
-        toast.error(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!data.user) {
-        toast.error('Login failed. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Login successful, user ID:', data.user.id);
-      toast.success('Login successful! Loading your dashboard...');
+    if (error) {
+      toast.error(error.message);
       setLoading(false);
-      
-      // AuthContext will refresh session/profile; useEffect above will redirect once profile is available
-    } catch (error: any) {
-      console.error('Login error:', error);
-      toast.error(error?.message || 'An unexpected error occurred');
+      return;
+    }
+
+    if (!data.user) {
+      toast.error('Login failed. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    // Fetch role directly and navigate immediately
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileData?.role) {
+      toast.success('Login successful!');
+      navigate(`/${profileData.role}`, { replace: true });
+    } else {
+      toast.error('Could not load your profile. Please try again.');
+      await supabase.auth.signOut();
       setLoading(false);
     }
   };
@@ -74,25 +68,6 @@ export default function LoginPage() {
               Register now
             </Link>
           </p>
-        </div>
-
-        {/* Role Tabs */}
-        <div className="bg-white rounded-lg shadow-sm p-2">
-          <div className="grid grid-cols-4 gap-2">
-            {(['user', 'driver', 'hospital', 'admin'] as UserRole[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                className={`py-2 px-3 rounded-md text-sm font-medium capitalize transition-colors ${
-                  role === r
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
         </div>
 
         <form className="mt-8 space-y-6 bg-white shadow-lg rounded-lg p-8" onSubmit={handleLogin}>

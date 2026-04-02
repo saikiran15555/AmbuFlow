@@ -19,7 +19,7 @@ import NotFoundPage from '@/pages/NotFoundPage';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 function App() {
-  const { user, profile, loading, profileResolved, profileError } = useAuth();
+  const { user, profile, loading } = useAuth();
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
 
@@ -35,7 +35,7 @@ function App() {
     </motion.div>
   );
 
-  if (loading || (user && !profileResolved)) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -51,40 +51,16 @@ function App() {
           <Route path="/" element={<Page><LandingPage /></Page>} />
           <Route path="/login" element={
             <Page>
-              {user ? (
-                profile ? (
-                  <Navigate to={`/${profile.role}`} replace />
-                ) : profileError ? (
-                  <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-                    <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-                      <h3 className="text-lg font-semibold mb-2">Unable to load profile</h3>
-                      <p className="text-sm text-gray-500 mb-4">{profileError}</p>
-                      <a href="/" className="text-primary font-medium">Go to home</a>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
-                )
-              ) : <LoginPage />}
+              {user && profile
+                ? <Navigate to={`/${profile.role}`} replace />
+                : <LoginPage />}
             </Page>
           } />
           <Route path="/register" element={
             <Page>
-              {user ? (
-                profile ? (
-                  <Navigate to={`/${profile.role}`} replace />
-                ) : profileError ? (
-                  <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-                    <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-                      <h3 className="text-lg font-semibold mb-2">Unable to load profile</h3>
-                      <p className="text-sm text-gray-500 mb-4">{profileError}</p>
-                      <a href="/" className="text-primary font-medium">Go to home</a>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="min-h-screen flex items-center justify-center">Loading profile...</div>
-                )
-              ) : <RegisterPage />}
+              {user && profile
+                ? <Navigate to={`/${profile.role}`} replace />
+                : <RegisterPage />}
             </Page>
           } />
         

@@ -11,7 +11,7 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 const ACTIVE_STATUSES = ['pending', 'accepted', 'arrived', 'picked_up'];
 
 export default function UserDashboard() {
-  const { profile } = useAuth();
+  const { profile, profileResolved } = useAuth();
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -20,13 +20,23 @@ export default function UserDashboard() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [emergencyPulsing, setEmergencyPulsing] = useState(false);
 
+  // Safety timeout — never stay stuck on loading spinner beyond 5s
   useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    // profileResolved = auth fully settled; profile?.id = user is logged in
+    if (!profileResolved) return;
+    if (!profile?.id) { setLoading(false); return; }
     fetchBookings();
-    const sub = supabase.channel('user_bookings_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `user_id=eq.${profile?.id}` }, fetchBookings)
+    const sub = supabase
+      .channel(`user_bookings_${profile.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `user_id=eq.${profile.id}` }, fetchBookings)
       .subscribe();
     return () => { sub.unsubscribe(); };
-  }, [profile?.id]);
+  }, [profileResolved, profile?.id]);
 
   const fetchBookings = async () => {
     if (!profile?.id) return;

@@ -4,8 +4,59 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Booking, Driver, Ambulance } from '@/types';
 import { formatDate, getStatusColor } from '@/lib/utils';
-import { Activity, CheckCircle, DollarSign, Navigation, MapPin, Phone } from 'lucide-react';
+import { Activity, CheckCircle, DollarSign, Navigation, MapPin, Phone, Locate } from 'lucide-react';
 import { toast } from 'sonner';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// ── Map icons ────────────────────────────────────────────────────────────────
+const driverMapIcon = L.divIcon({
+  className: '',
+  html: `<div style="position:relative;width:48px;height:48px">
+    <div style="position:absolute;inset:0;background:rgba(220,38,38,0.25);border-radius:50%;animation:ping 1.4s ease-out infinite"></div>
+    <div style="position:absolute;inset:6px;background:#DC2626;border-radius:50%;border:3px solid white;box-shadow:0 4px 16px rgba(220,38,38,0.55);display:flex;align-items:center;justify-content:center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+    </div>
+  </div>`,
+  iconSize: [48, 48],
+  iconAnchor: [24, 24],
+});
+
+const pickupMapIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:36px;height:36px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(59,130,246,0.5);display:flex;align-items:center;justify-content:center">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  </div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+});
+
+const destMapIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:36px;height:36px;background:#10B981;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(16,185,129,0.5);display:flex;align-items:center;justify-content:center">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  </div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+});
+
+function FitBounds({ coords }: { coords: [number, number][] }) {
+  const map = useMap();
+  const keyRef = useRef('');
+  useEffect(() => {
+    if (!coords.length) return;
+    const key = coords.map(c => c.join(',')).join('|');
+    if (keyRef.current === key) return;
+    keyRef.current = key;
+    if (coords.length >= 2) {
+      map.fitBounds(L.latLngBounds(coords), { padding: [52, 52], animate: true, maxZoom: 16 });
+    } else {
+      map.setView(coords[0], 15, { animate: true });
+    }
+  }, [coords, map]);
+  return null;
+}
 
 export default function DriverDashboard() {
   const { profile } = useAuth();
@@ -15,8 +66,11 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState('Location sync inactive');
+  const [livePos, setLivePos] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const [driverError, setDriverError] = useState<string | null>(null);
   const lastLocationPushRef = useRef(0);
+  const lastRouteFetchKeyRef = useRef('');
 
   useEffect(() => {
     fetchDriverData();
@@ -82,6 +136,7 @@ export default function DriverDashboard() {
         if (error) {
           setLocationStatus('Live location sync failed');
         } else {
+          setLivePos({ lat: position.coords.latitude, lng: position.coords.longitude });
           setLocationStatus(`Live location synced (${Math.round(position.coords.accuracy)}m)`);
         }
       },
@@ -91,6 +146,34 @@ export default function DriverDashboard() {
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, [driverData?.id]);
+
+  // Fetch road route from driver → pickup via OSRM whenever position or active trip changes
+  useEffect(() => {
+    const activeTrip = bookings.find(b => ['accepted', 'arrived', 'picked_up'].includes(b.status));
+    if (!livePos || !activeTrip) { setRouteCoords([]); return; }
+
+    const key = `${livePos.lat.toFixed(4)},${livePos.lng.toFixed(4)}|${activeTrip.pickup_lat},${activeTrip.pickup_lng}`;
+    if (lastRouteFetchKeyRef.current === key) return;
+    lastRouteFetchKeyRef.current = key;
+
+    (async () => {
+      try {
+        const url =
+          `https://router.project-osrm.org/route/v1/driving/` +
+          `${livePos.lng},${livePos.lat};${activeTrip.pickup_lng},${activeTrip.pickup_lat}` +
+          `?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const json = await res.json();
+        const coords: [number, number][] =
+          json?.routes?.[0]?.geometry?.coordinates?.map(
+            ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
+          ) ?? [];
+        setRouteCoords(coords.length >= 2 ? coords : [[livePos.lat, livePos.lng], [activeTrip.pickup_lat, activeTrip.pickup_lng]]);
+      } catch {
+        setRouteCoords([[livePos.lat, livePos.lng], [activeTrip.pickup_lat, activeTrip.pickup_lng]]);
+      }
+    })();
+  }, [livePos, bookings]);
 
   const fetchDriverData = async () => {
     if (!profile?.id) return;
@@ -264,7 +347,168 @@ export default function DriverDashboard() {
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Header */}
+        {/* ── Live Map ─────────────────────────────────────────────────────── */}
+        {(() => {
+          const activeTrip = activeBookings[0] ?? null;
+          const mapCenter: [number, number] = livePos
+            ? [livePos.lat, livePos.lng]
+            : activeTrip
+            ? [activeTrip.pickup_lat, activeTrip.pickup_lng]
+            : [20.5937, 78.9629];
+          const boundsCoords: [number, number][] = livePos && activeTrip
+            ? [[livePos.lat, livePos.lng], [activeTrip.pickup_lat, activeTrip.pickup_lng]]
+            : livePos ? [[livePos.lat, livePos.lng]]
+            : activeTrip ? [[activeTrip.pickup_lat, activeTrip.pickup_lng]]
+            : [[20.5937, 78.9629]];
+          const fitCoords = routeCoords.length >= 2 ? routeCoords : boundsCoords;
+          const routeStyle = { color: '#DC2626', weight: 5, opacity: 0.9, lineCap: 'round' as const, lineJoin: 'round' as const };
+
+          return (
+            <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* Map header */}
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center">
+                    <Locate className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900">Route to Pickup</h2>
+                    <p className="text-xs text-gray-500">{locationStatus}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      livePos ? 'bg-green-500' : 'bg-yellow-400'
+                    }`} />
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                      livePos ? 'bg-green-500' : 'bg-yellow-400'
+                    }`} />
+                  </span>
+                  <span className={`text-xs font-semibold ${
+                    livePos ? 'text-green-600' : 'text-yellow-600'
+                  }`}>
+                    {livePos
+                      ? routeCoords.length >= 2
+                        ? 'Route Active'
+                        : 'GPS Active'
+                      : 'Waiting for GPS'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-[1fr,280px]">
+                {/* Map */}
+                <div style={{ height: '420px' }}>
+                  <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}
+                    whenReady={(m) => setTimeout(() => m.target.invalidateSize(), 200)}>
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; OpenStreetMap contributors'
+                    />
+                    <FitBounds coords={fitCoords} />
+                    {routeCoords.length >= 2 && (
+                      <Polyline positions={routeCoords} pathOptions={routeStyle} />
+                    )}
+                    {livePos && (
+                      <Marker position={[livePos.lat, livePos.lng]} icon={driverMapIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">🚑 Your Location<br />
+                            <span className="font-normal text-gray-500 text-xs">
+                              {livePos.lat.toFixed(5)}, {livePos.lng.toFixed(5)}
+                            </span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+                    {activeTrip && (
+                      <Marker position={[activeTrip.pickup_lat, activeTrip.pickup_lng]} icon={pickupMapIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">📍 Pickup<br />
+                            <span className="font-normal text-gray-600 text-xs">{activeTrip.pickup_location}</span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+                    {activeTrip && activeTrip.destination_lat && activeTrip.destination_lng && (
+                      <Marker position={[activeTrip.destination_lat, activeTrip.destination_lng]} icon={destMapIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">🏥 Hospital<br />
+                            <span className="font-normal text-gray-600 text-xs">{activeTrip.destination}</span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+                  </MapContainer>
+                </div>
+
+                {/* Side info panel */}
+                <div className="p-5 border-l border-gray-100 flex flex-col gap-4 bg-gray-50">
+                  {/* GPS coords */}
+                  <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Your Position</p>
+                    {livePos ? (
+                      <>
+                        <p className="text-sm font-mono text-gray-800">{livePos.lat.toFixed(5)}</p>
+                        <p className="text-sm font-mono text-gray-800">{livePos.lng.toFixed(5)}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-400">Acquiring GPS…</p>
+                    )}
+                  </div>
+
+                  {/* Active trip info */}
+                  {activeTrip ? (
+                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm flex-1">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Active Trip</p>
+                      <div className="space-y-2.5">
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <MapPin className="h-3 w-3 text-blue-600" />
+                          </span>
+                          <div>
+                            <p className="text-xs text-gray-400">Pickup</p>
+                            <p className="text-xs font-semibold text-gray-800 leading-snug">{activeTrip.pickup_location}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                            <MapPin className="h-3 w-3 text-green-600" />
+                          </span>
+                          <div>
+                            <p className="text-xs text-gray-400">Hospital</p>
+                            <p className="text-xs font-semibold text-gray-800 leading-snug">{activeTrip.destination}</p>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-full capitalize ${getStatusColor(activeTrip.status)}`}>
+                            {activeTrip.status.replace('_', ' ')}
+                          </span>
+                          <span className="text-xs font-bold text-gray-700">₹{activeTrip.fare}</span>
+                        </div>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${activeTrip.pickup_lat},${activeTrip.pickup_lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1.5 w-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
+                        >
+                          <Navigation className="h-3.5 w-3.5" /> Navigate
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm flex-1 flex flex-col items-center justify-center text-center gap-2">
+                      <MapPin className="h-8 w-8 text-gray-200" />
+                      <p className="text-sm text-gray-400 font-medium">No active trip</p>
+                      <p className="text-xs text-gray-300">Map will update when a trip is assigned</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="mb-8 flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Driver Dashboard</h1>

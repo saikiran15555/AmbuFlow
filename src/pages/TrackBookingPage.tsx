@@ -26,15 +26,13 @@ const destIcon = L.divIcon({
   iconSize: [36, 36], iconAnchor: [18, 18],
 });
 
+// Driver icon: solid red circle with ambulance SVG + separate pulsing ring via box-shadow
 const driverIcon = L.divIcon({
   className: '',
-  html: `<div style="position:relative;width:48px;height:48px">
-    <div style="position:absolute;inset:0;background:rgba(229,57,53,0.3);border-radius:50%;animation:pulse-ring 1.4s ease-out infinite"></div>
-    <div style="position:absolute;inset:6px;background:#E53935;border-radius:50%;border:3px solid white;box-shadow:0 4px 16px rgba(229,57,53,0.6);display:flex;align-items:center;justify-content:center">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
-    </div>
+  html: `<div style="width:44px;height:44px;background:#E53935;border-radius:50%;border:3px solid white;box-shadow:0 0 0 6px rgba(229,57,53,0.25),0 4px 16px rgba(229,57,53,0.5);display:flex;align-items:center;justify-content:center">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
   </div>`,
-  iconSize: [48, 48], iconAnchor: [24, 24],
+  iconSize: [44, 44], iconAnchor: [22, 22],
 });
 
 const STATUS_STEPS = [
@@ -59,17 +57,34 @@ export default function TrackBookingPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [eta, setEta] = useState(8);
+  const [driverPos, setDriverPos] = useState<{ lat: number; lng: number } | null>(null);
 
   const fetchBooking = useCallback(async () => {
     if (!id) return;
     const { data, error } = await supabase
       .from('bookings')
-      .select(`*, hospital:hospitals(hospital_name), driver:drivers(current_lat, current_lng, profile:profiles(full_name, phone))`)
+      .select(`*, hospital:hospitals(hospital_name), driver:drivers(id, current_lat, current_lng, profile:profiles(full_name, phone))`)
       .eq('id', id).single();
     if (error) { toast.error('Failed to fetch tracking data'); }
-    else if (data) setBooking(data);
+    else if (data) {
+      setBooking(data);
+      const lat = data.driver?.current_lat;
+      const lng = data.driver?.current_lng;
+      if (lat != null && lng != null) {
+        setDriverPos({ lat, lng });
+      }
+    }
     setLoading(false);
   }, [id]);
+
+  // Fetch driver location via security definer RPC — bypasses RLS recursion safely
+  const fetchDriverLocation = useCallback(async (bookingId: string) => {
+    const { data } = await supabase
+      .rpc('get_driver_location', { booking_id: bookingId });
+    if (data?.[0]?.current_lat != null && data?.[0]?.current_lng != null) {
+      setDriverPos({ lat: data[0].current_lat, lng: data[0].current_lng });
+    }
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -81,14 +96,35 @@ export default function TrackBookingPage() {
   }, [fetchBooking, id]);
 
   useEffect(() => {
-    if (!id || !booking?.driver_id) return;
-    const ch = supabase.channel(`track_driver_${id}_${booking.driver_id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers', filter: `id=eq.${booking.driver_id}` }, fetchBooking)
-      .subscribe();
-    return () => { ch.unsubscribe(); };
-  }, [booking?.driver_id, fetchBooking, id]);
+    if (!booking?.driver_id || !id) return;
+    const driverId = booking.driver_id;
 
-  // Mock ETA countdown
+    // Fetch immediately via RPC
+    fetchDriverLocation(id);
+
+    // Poll every 5s as reliable fallback
+    const poll = setInterval(() => fetchDriverLocation(id), 5000);
+
+    // Also try realtime
+    const ch = supabase.channel(`track_driver_loc_${driverId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${driverId}` },
+        (payload) => {
+          const { current_lat, current_lng } = payload.new as { current_lat: number; current_lng: number };
+          if (current_lat != null && current_lng != null) {
+            setDriverPos({ lat: current_lat, lng: current_lng });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(poll);
+      ch.unsubscribe();
+    };
+  }, [booking?.driver_id, fetchDriverLocation]);
+
   useEffect(() => {
     if (!booking || booking.status === 'completed' || booking.status === 'cancelled') return;
     const t = setInterval(() => setEta(e => Math.max(1, e - 1)), 30000);
@@ -96,8 +132,8 @@ export default function TrackBookingPage() {
   }, [booking?.status]);
 
   const currentStepIdx = STATUS_STEPS.findIndex(s => s.key === booking?.status);
-  const driverLat = booking?.driver?.current_lat ?? null;
-  const driverLng = booking?.driver?.current_lng ?? null;
+  const driverLat = driverPos?.lat ?? null;
+  const driverLng = driverPos?.lng ?? null;
   const mapCenter: [number, number] = driverLat !== null && driverLng !== null
     ? [driverLat, driverLng]
     : booking ? [booking.pickup_lat, booking.pickup_lng] : [20.5937, 78.9629];
@@ -164,7 +200,12 @@ export default function TrackBookingPage() {
               </Marker>
               {driverLat !== null && driverLng !== null && (
                 <Marker position={[driverLat, driverLng]} icon={driverIcon}>
-                  <Popup><div className="font-semibold text-sm">🚑 {booking.driver?.profile?.full_name || 'Your Ambulance'}</div></Popup>
+                  <Popup>
+                    <div className="font-semibold text-sm">
+                      🚑 {booking.driver?.profile?.full_name || 'Your Ambulance'}<br />
+                      <span className="font-normal text-gray-500 text-xs">Live Location</span>
+                    </div>
+                  </Popup>
                 </Marker>
               )}
             </MapContainer>
@@ -193,6 +234,21 @@ export default function TrackBookingPage() {
                 </div>
               </motion.div>
             </AnimatePresence>
+
+            {/* Driver location status */}
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border ${
+              driverPos
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400'
+            }`}>
+              <span className="relative flex h-2 w-2 flex-shrink-0">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${driverPos ? 'bg-green-500' : 'bg-yellow-400'}`} />
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${driverPos ? 'bg-green-500' : 'bg-yellow-400'}`} />
+              </span>
+              {driverPos
+                ? `Driver on map · ${driverPos.lat.toFixed(4)}, ${driverPos.lng.toFixed(4)}`
+                : booking.driver_id ? 'Waiting for driver GPS...' : 'No driver assigned yet'}
+            </div>
 
             {/* Status Steps */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
