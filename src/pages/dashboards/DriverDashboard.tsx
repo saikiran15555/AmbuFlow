@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Booking, Driver, Ambulance } from '@/types';
 import { formatDate, getStatusColor } from '@/lib/utils';
-import { Activity, CheckCircle, DollarSign, Navigation, MapPin, Phone, Locate } from 'lucide-react';
+import { Activity, CheckCircle, IndianRupee, Navigation, MapPin, Phone, Locate } from 'lucide-react';
 import { toast } from 'sonner';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -323,20 +323,6 @@ export default function DriverDashboard() {
     );
   }
 
-  if (profile?.role === 'driver' && effectiveApprovalStatus !== 'approved') {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">Account Pending Approval</h3>
-          <p className="text-gray-600">Your driver account is awaiting hospital approval.</p>
-          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
-            Refresh Status
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const totalBookings = bookings.length;
   const activeBookings = bookings.filter(b => ['accepted', 'arrived', 'picked_up'].includes(b.status));
   const completedBookings = bookings.filter(b => b.status === 'completed');
@@ -559,7 +545,7 @@ export default function DriverDashboard() {
                 <p className="text-3xl font-bold text-gray-900 mt-1">₹{walletBalance ?? totalEarnings}</p>
                 <p className="text-xs text-gray-500 mt-1">Total earned: ₹{totalEarnings}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-emerald-600" />
+              <IndianRupee className="h-8 w-8 text-emerald-600" />
             </div>
           </div>
         </div>

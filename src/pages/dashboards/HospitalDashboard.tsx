@@ -3,8 +3,66 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Hospital, Driver, Ambulance, Booking } from '@/types';
 import { formatDate, getStatusColor } from '@/lib/utils';
-import { DollarSign, Ambulance as AmbulanceIcon, Users, Activity, Bell, MapPin, Phone } from 'lucide-react';
+import { DollarSign, IndianRupee, Ambulance as AmbulanceIcon, Users, Activity, Bell, MapPin, Phone, Map } from 'lucide-react';
 import { toast } from 'sonner';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// ── Map icons ────────────────────────────────────────────────────────────────
+const driverIcon = L.divIcon({
+  className: '',
+  html: `<div style="position:relative;width:44px;height:44px">
+    <div style="position:absolute;inset:0;background:rgba(220,38,38,0.25);border-radius:50%;animation:ping 1.4s ease-out infinite"></div>
+    <div style="position:absolute;inset:5px;background:#DC2626;border-radius:50%;border:3px solid white;box-shadow:0 4px 14px rgba(220,38,38,0.55);display:flex;align-items:center;justify-content:center">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+    </div>
+  </div>`,
+  iconSize: [44, 44], iconAnchor: [22, 22],
+});
+
+const pickupIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:34px;height:34px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(59,130,246,0.5);display:flex;align-items:center;justify-content:center">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  </div>`,
+  iconSize: [34, 34], iconAnchor: [17, 34],
+});
+
+const destIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:34px;height:34px;background:#10B981;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(16,185,129,0.5);display:flex;align-items:center;justify-content:center">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  </div>`,
+  iconSize: [34, 34], iconAnchor: [17, 34],
+});
+
+const hospitalSelfIcon = L.divIcon({
+  className: '',
+  html: `<div style="position:relative;width:46px;height:46px">
+    <div style="position:absolute;inset:0;background:rgba(124,58,237,0.2);border-radius:50%;animation:ping 2s ease-out infinite"></div>
+    <div style="position:absolute;inset:5px;background:#7C3AED;border-radius:50%;border:3px solid white;box-shadow:0 4px 16px rgba(124,58,237,0.55);display:flex;align-items:center;justify-content:center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+    </div>
+  </div>`,
+  iconSize: [46, 46], iconAnchor: [23, 23],
+});
+
+function FitBounds({ coords }: { coords: [number, number][] }) {
+  const map = useMap();
+  const keyRef = useCallback((k: string) => k, []);
+  const prevKey = useCallback(() => '', []);
+  useEffect(() => {
+    if (!coords.length) return;
+    if (coords.length >= 2) {
+      map.fitBounds(L.latLngBounds(coords), { padding: [48, 48], animate: true, maxZoom: 15 });
+    } else {
+      map.setView(coords[0], 14, { animate: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(coords)]);
+  return null;
+}
 
 export default function HospitalDashboard() {
   const { profile } = useAuth();
@@ -15,6 +73,8 @@ export default function HospitalDashboard() {
   const [loading, setLoading] = useState(true);
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [driverLocations, setDriverLocations] = useState<Record<string, { lat: number; lng: number }>>({});
   const [stats, setStats] = useState({
     driversCount: 0,
     activeBookingsCount: 0,
@@ -316,6 +376,32 @@ const fetchHospitalRequests = useCallback(async (hospitalId: string) => {
     return () => { channel.unsubscribe(); };
   }, [hospitalId]);
 
+  // Poll driver locations every 5s for active trips
+  useEffect(() => {
+    const activeDriverIds = bookings
+      .filter(b => ['accepted', 'arrived', 'picked_up'].includes(b.status) && b.driver_id)
+      .map(b => b.driver_id!);
+    if (!activeDriverIds.length) return;
+
+    const poll = async () => {
+      const { data } = await supabase
+        .from('drivers')
+        .select('id, current_lat, current_lng')
+        .in('id', activeDriverIds);
+      if (data) {
+        const locs: Record<string, { lat: number; lng: number }> = {};
+        data.forEach(d => {
+          if (d.current_lat != null && d.current_lng != null)
+            locs[d.id] = { lat: d.current_lat, lng: d.current_lng };
+        });
+        setDriverLocations(locs);
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [bookings]);
+
   const handleAssignDriver = async (bookingId: string, driverId: string) => {
     setAssigningId(bookingId);
 
@@ -495,7 +581,7 @@ const fetchHospitalRequests = useCallback(async (hospitalId: string) => {
                 <p className="text-sm text-gray-600">Total Revenue</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">₹{stats.totalRevenue}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <IndianRupee className="h-8 w-8 text-green-600" />
             </div>
           </div>
 
@@ -530,6 +616,215 @@ const fetchHospitalRequests = useCallback(async (hospitalId: string) => {
             </div>
           </div>
         </div>
+
+        {/* ── Live Trip Tracking Map ────────────────────────────────────────────── */}
+        {(() => {
+          const activeTrips = bookings.filter(b => ['accepted', 'arrived', 'picked_up'].includes(b.status));
+          const selectedTrip = activeTrips.find(b => b.id === selectedTripId) ?? activeTrips[0] ?? null;
+          if (selectedTripId === null && activeTrips.length > 0) setSelectedTripId(activeTrips[0].id);
+
+          const driverPos = selectedTrip?.driver_id ? driverLocations[selectedTrip.driver_id] : null;
+          const hospitalPos = hospital?.lat != null && hospital?.lng != null
+            ? { lat: hospital.lat, lng: hospital.lng } : null;
+          const boundsCoords: [number, number][] = [
+            ...(driverPos ? [[driverPos.lat, driverPos.lng] as [number, number]] : []),
+            ...(selectedTrip ? [[selectedTrip.pickup_lat, selectedTrip.pickup_lng] as [number, number]] : []),
+            ...(selectedTrip?.destination_lat ? [[selectedTrip.destination_lat, selectedTrip.destination_lng] as [number, number]] : []),
+            ...(hospitalPos ? [[hospitalPos.lat, hospitalPos.lng] as [number, number]] : []),
+          ];
+          const mapCenter: [number, number] = boundsCoords[0] ?? (hospitalPos ? [hospitalPos.lat, hospitalPos.lng] : [20.5937, 78.9629]);
+
+          return (
+            <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center">
+                    <Map className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900">Live Trip Tracking</h2>
+                    <p className="text-xs text-gray-500">
+                      {activeTrips.length > 0 ? `${activeTrips.length} active trip${activeTrips.length > 1 ? 's' : ''} in progress` : 'No active trips right now'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${activeTrips.length > 0 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${activeTrips.length > 0 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  </span>
+                  <span className={`text-xs font-semibold ${activeTrips.length > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                    {activeTrips.length > 0 ? 'Live' : 'Idle'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-[1fr,300px]">
+                {/* Map */}
+                <div style={{ height: '440px' }}>
+                  <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}
+                    whenReady={(m) => setTimeout(() => m.target.invalidateSize(), 200)}>
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; OpenStreetMap contributors'
+                    />
+                    {boundsCoords.length > 0 && <FitBounds coords={boundsCoords} />}
+
+                    {/* Hospital self marker */}
+                    {hospitalPos && (
+                      <Marker position={[hospitalPos.lat, hospitalPos.lng]} icon={hospitalSelfIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">🏥 {hospital?.hospital_name}<br />
+                            <span className="font-normal text-gray-500 text-xs">{hospital?.city} • {hospital?.hospital_type === 'government' ? 'Government' : 'Private'}</span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+
+                    {/* Driver marker */}
+                    {driverPos && (
+                      <Marker position={[driverPos.lat, driverPos.lng]} icon={driverIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">🚑 Driver<br />
+                            <span className="font-normal text-gray-500 text-xs">
+                              {selectedTrip && getDriverName(selectedTrip)}
+                            </span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+
+                    {/* Pickup marker */}
+                    {selectedTrip && (
+                      <Marker position={[selectedTrip.pickup_lat, selectedTrip.pickup_lng]} icon={pickupIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">📍 Patient Pickup<br />
+                            <span className="font-normal text-gray-600 text-xs">{selectedTrip.pickup_location}</span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+
+                    {/* Destination marker */}
+                    {selectedTrip?.destination_lat && selectedTrip?.destination_lng && (
+                      <Marker position={[selectedTrip.destination_lat, selectedTrip.destination_lng]} icon={destIcon}>
+                        <Popup>
+                          <div className="font-semibold text-sm">🏥 {selectedTrip.destination}</div>
+                        </Popup>
+                      </Marker>
+                    )}
+                  </MapContainer>
+                </div>
+
+                {/* Side panel */}
+                <div className="border-l border-gray-100 bg-gray-50 flex flex-col">
+                  {/* Trip selector */}
+                  <div className="p-4 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Trip</p>
+                    {activeTrips.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 text-center gap-2">
+                        <MapPin className="h-8 w-8 text-gray-200" />
+                        <p className="text-sm text-gray-400 font-medium">No active trips</p>
+                        <p className="text-xs text-gray-300">Map updates when trips are assigned</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[120px] overflow-y-auto">
+                        {activeTrips.map(trip => (
+                          <button
+                            key={trip.id}
+                            onClick={() => setSelectedTripId(trip.id)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-all border ${
+                              selectedTripId === trip.id
+                                ? 'bg-red-600 text-white border-red-600'
+                                : 'bg-white text-gray-700 border-gray-200 hover:border-red-300'
+                            }`}
+                          >
+                            <div className="font-semibold truncate">{trip.pickup_location}</div>
+                            <div className={`capitalize mt-0.5 ${selectedTripId === trip.id ? 'text-red-100' : 'text-gray-400'}`}>
+                              {trip.status.replace('_', ' ')} • ₹{trip.fare}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Trip details */}
+                  {selectedTrip ? (
+                    <div className="p-4 flex-1 space-y-3 overflow-y-auto">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Trip Details</p>
+
+                      <div className="bg-white rounded-xl p-3 border border-gray-100 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <MapPin className="h-3 w-3 text-blue-600" />
+                          </span>
+                          <div>
+                            <p className="text-xs text-gray-400">Pickup</p>
+                            <p className="text-xs font-semibold text-gray-800 leading-snug">{selectedTrip.pickup_location}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <MapPin className="h-3 w-3 text-green-600" />
+                          </span>
+                          <div>
+                            <p className="text-xs text-gray-400">Destination</p>
+                            <p className="text-xs font-semibold text-gray-800 leading-snug">{selectedTrip.destination}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-xl p-3 border border-gray-100 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">Status</span>
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-full capitalize ${getStatusColor(selectedTrip.status)}`}>
+                            {selectedTrip.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">Fare</span>
+                          <span className="text-xs font-bold text-gray-800">₹{selectedTrip.fare}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">Distance</span>
+                          <span className="text-xs font-bold text-gray-800">{selectedTrip.distance?.toFixed(1)} km</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">Driver</span>
+                          <span className="text-xs font-bold text-gray-800 truncate max-w-[120px]">{getDriverName(selectedTrip)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">Driver GPS</span>
+                          <span className={`text-xs font-semibold ${driverPos ? 'text-green-600' : 'text-gray-400'}`}>
+                            {driverPos ? 'Live' : 'Unavailable'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Legend */}
+                      <div className="bg-white rounded-xl p-3 border border-gray-100 space-y-1.5">
+                        <p className="text-xs font-semibold text-gray-500 mb-1">Map Legend</p>
+                        {[['#7C3AED', '🏥 Your Hospital'], ['#DC2626', '🚑 Driver (live)'], ['#3B82F6', '📍 Patient pickup'], ['#10B981', '🏥 Destination']].map(([color, label]) => (
+                          <div key={label} className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
+                            <span className="text-xs text-gray-600">{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2">
+                      <Map className="h-10 w-10 text-gray-200" />
+                      <p className="text-sm text-gray-400 font-medium">No trip selected</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Incoming Requests */}
         {(() => {

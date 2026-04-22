@@ -63,7 +63,7 @@ export default function TrackBookingPage() {
     if (!id) return;
     const { data, error } = await supabase
       .from('bookings')
-      .select(`*, hospital:hospitals(hospital_name), driver:drivers(id, current_lat, current_lng, profile:profiles(full_name, phone))`)
+      .select(`*, hospital:hospitals(hospital_name), driver:drivers(id, full_name, phone, current_lat, current_lng, profile:profiles(full_name, phone))`)
       .eq('id', id).single();
     if (error) { toast.error('Failed to fetch tracking data'); }
     else if (data) {
@@ -281,22 +281,50 @@ export default function TrackBookingPage() {
             {/* Driver Card */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
               <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-sm uppercase tracking-wide">Driver Details</h3>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 flex items-center justify-center">
-                  <User className="h-6 w-6 text-red-600" />
+              {booking.driver_id && booking.driver ? (() => {
+                const driverName = (booking.driver as any).full_name || booking.driver?.profile?.full_name || 'Driver';
+                const driverPhone = (booking.driver as any).phone || booking.driver?.profile?.phone || null;
+                return (
+                  <>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 flex items-center justify-center flex-shrink-0">
+                        <User className="h-6 w-6 text-red-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-900 dark:text-white truncate">{driverName}</p>
+                        {driverPhone ? (
+                          <a href={`tel:${driverPhone}`} className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400 font-medium hover:underline mt-0.5">
+                            <Phone className="h-3.5 w-3.5 flex-shrink-0" />{driverPhone}
+                          </a>
+                        ) : (
+                          <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">Fetching contact...</p>
+                        )}
+                      </div>
+                    </div>
+                    {driverPhone ? (
+                      <a
+                        href={`tel:${driverPhone}`}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-3 rounded-xl font-semibold text-sm transition-all hover:-translate-y-px active:scale-[0.98] shadow-sm shadow-green-200 dark:shadow-green-900/20"
+                      >
+                        <Phone className="h-4 w-4" /> Call Driver
+                      </a>
+                    ) : (
+                      <div className="w-full flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 py-3 rounded-xl text-sm cursor-not-allowed">
+                        <Phone className="h-4 w-4" /> Contact unavailable
+                      </div>
+                    )}
+                  </>
+                );
+              })() : (
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <User className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-500 dark:text-gray-400">Awaiting assignment</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">A driver will be assigned shortly</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-gray-900 dark:text-white">{booking.driver?.profile?.full_name || 'Awaiting assignment'}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{booking.driver?.profile?.phone || 'Phone not available'}</p>
-                </div>
-              </div>
-              {booking.driver?.profile?.phone && (
-                <a
-                  href={`tel:${booking.driver.profile.phone}`}
-                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold text-sm transition-all hover:-translate-y-px active:scale-[0.98] shadow-sm shadow-green-200 dark:shadow-green-900/20"
-                >
-                  <Phone className="h-4 w-4" /> Call Driver
-                </a>
               )}
             </div>
 

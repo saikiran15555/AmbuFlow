@@ -36,9 +36,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      setProfile(data as Profile);
+      let profileData = data as Profile;
+
+      // Sync approval_status from drivers table (hospital approves driver there)
+      if (profileData.role === 'driver' && profileData.approval_status !== 'approved') {
+        const { data: driverRow } = await supabase
+          .from('drivers')
+          .select('approval_status')
+          .eq('profile_id', userId)
+          .single();
+        if (driverRow?.approval_status === 'approved') {
+          profileData = { ...profileData, approval_status: 'approved' };
+          await supabase.from('profiles').update({ approval_status: 'approved' }).eq('id', userId);
+        }
+      }
+
+      // Sync approval_status from hospitals table (admin approves hospital there)
+      if (profileData.role === 'hospital' && profileData.approval_status !== 'approved') {
+        const { data: hospitalRow } = await supabase
+          .from('hospitals')
+          .select('approval_status')
+          .eq('profile_id', userId)
+          .single();
+        if (hospitalRow?.approval_status === 'approved') {
+          profileData = { ...profileData, approval_status: 'approved' };
+          await supabase.from('profiles').update({ approval_status: 'approved' }).eq('id', userId);
+        }
+      }
+
+      setProfile(profileData);
       setProfileError(null);
-      return data as Profile;
+      return profileData;
     } catch {
       setProfile(null);
       return null;

@@ -143,9 +143,10 @@ export default function UserDashboard() {
               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl p-5 text-white shadow-lg shadow-red-200 dark:shadow-red-900/30"
             >
-              <div className="flex items-center justify-between">
+              {/* Top row: status + track button */}
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
                     <Ambulance className="h-6 w-6 animate-ambulance" />
                   </div>
                   <div>
@@ -155,10 +156,61 @@ export default function UserDashboard() {
                 </div>
                 <button
                   onClick={() => navigate(`/track/${activeBooking.id}`)}
-                  className="flex items-center gap-2 bg-white text-red-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors active:scale-[0.98]"
+                  className="flex items-center gap-2 bg-white text-red-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors active:scale-[0.98] flex-shrink-0"
                 >
                   <MapPin className="h-4 w-4" /> Track Live
                 </button>
+              </div>
+
+              {/* Driver details row */}
+              <div className="bg-white/10 rounded-xl p-4">
+                {(() => {
+                  const driverName = (activeBooking as any).driver?.full_name || (activeBooking as any).driver?.profile?.full_name || null;
+                  const driverPhone = (activeBooking as any).driver?.phone || (activeBooking as any).driver?.profile?.phone || null;
+                  const isAssigned = !!activeBooking.driver_id && !!driverName;
+
+                  return isAssigned ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Ambulance className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-red-200 font-medium">Assigned Driver</p>
+                          <p className="font-bold text-white truncate">{driverName}</p>
+                          {driverPhone && (
+                            <p className="text-xs text-red-100 mt-0.5">{driverPhone}</p>
+                          )}
+                        </div>
+                      </div>
+                      {driverPhone ? (
+                        <a
+                          href={`tel:${driverPhone}`}
+                          className="flex items-center gap-2 bg-green-500 hover:bg-green-400 active:bg-green-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.97] flex-shrink-0 shadow-lg shadow-green-900/30"
+                        >
+                          <Phone className="h-4 w-4" />
+                          <span className="hidden sm:inline">Call Driver</span>
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-white/10 text-red-200 px-4 py-2.5 rounded-xl text-sm flex-shrink-0">
+                          <Phone className="h-4 w-4" />
+                          <span className="hidden sm:inline">No contact</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Ambulance className="h-5 w-5 text-red-200" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-red-200 font-medium">Driver</p>
+                        <p className="text-sm text-white font-semibold">Awaiting assignment...</p>
+                        <p className="text-xs text-red-200 mt-0.5">Hospital is assigning a driver</p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           )}
